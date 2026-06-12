@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Austin Crime Reports</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #111213;
+    --bg-hover: #1e2023;
+    --border: rgba(255,255,255,0.08);
+    --border-mid: rgba(255,255,255,0.14);
+    --text-primary: #e8e8e8;
+    --text-secondary: #888;
+    --text-dim: #555;
+    --accent-red: #c94040;
+    --accent-amber: #c97b1a;
+    --accent-purple: #7065c4;
+    --accent-teal: #1e9070;
+    --accent-gray: #525252;
+    --info: #3d80c4;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 13px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+  #widget { display: flex; flex-direction: column; height: 100vh; max-width: 420px; margin: 0 auto; }
+  #header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px 10px; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
+  #header-left { display: flex; align-items: center; gap: 8px; }
+  #header h1 { font-size: 14px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-primary); }
+  #badge { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; background: rgba(201,123,26,0.18); color: #e8a060; border: 0.5px solid rgba(201,123,26,0.35); padding: 2px 7px; border-radius: 99px; }
+  #refresh-btn { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-secondary); background: none; border: 0.5px solid var(--border-mid); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  #refresh-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+  #filter-bar { display: flex; gap: 5px; padding: 8px 16px; border-bottom: 0.5px solid var(--border); flex-wrap: wrap; flex-shrink: 0; }
+  .fchip { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 99px; border: 0.5px solid var(--border-mid); color: var(--text-secondary); background: none; cursor: pointer; transition: all 0.15s; letter-spacing: 0.03em; }
+  .fchip:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.25); }
+  .fchip.active { color: #fff; border-color: transparent; }
+  .fchip.active[data-cat="all"]      { background: rgba(255,255,255,0.12); }
+  .fchip.active[data-cat="violent"]  { background: rgba(201,64,64,0.35); color: #e88; }
+  .fchip.active[data-cat="property"] { background: rgba(201,123,26,0.35); color: #e8a060; }
+  .fchip.active[data-cat="drug"]     { background: rgba(112,101,196,0.35); color: #a89ee0; }
+  .fchip.active[data-cat="traffic"]  { background: rgba(30,144,112,0.35); color: #6dcaaa; }
+  .fchip.active[data-cat="other"]    { background: rgba(82,82,82,0.4); color: #aaa; }
+  #list { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent; }
+  #list::-webkit-scrollbar { width: 4px; }
+  #list::-webkit-scrollbar-track { background: transparent; }
+  #list::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
+  .incident { display: grid; grid-template-columns: 3px 1fr auto; gap: 0 10px; align-items: start; padding: 11px 16px; border-bottom: 0.5px solid var(--border); transition: background 0.1s; }
+  .incident:hover { background: var(--bg-hover); }
+  .incident:last-child { border-bottom: none; }
+  .dot { align-self: stretch; min-height: 18px; border-radius: 2px; width: 3px; margin-top: 1px; }
+  .dot.violent  { background: var(--accent-red); }
+  .dot.property { background: var(--accent-amber); }
+  .dot.drug     { background: var(--accent-purple); }
+  .dot.traffic  { background: var(--accent-teal); }
+  .dot.other    { background: var(--accent-gray); }
+  .inc-type { font-size: 15px; font-weight: 500; color: var(--text-primary); margin-bottom: 3px; line-height: 1.3; }
+  .inc-meta { font-size: 13px; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .inc-meta i { font-size: 12px; }
+  .inc-narrative { font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; font-style: italic; }
+  .inc-date { font-size: 12px; color: var(--text-dim); white-space: nowrap; padding-top: 2px; text-align: right; }
+  #status { padding: 40px 16px; text-align: center; color: var(--text-secondary); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #status a { color: var(--info); font-size: 12px; }
+  #footer { display: flex; justify-content: space-between; align-items: center; padding: 7px 16px; border-top: 0.5px solid var(--border); flex-shrink: 0; }
+  #updated { font-size: 12px; color: var(--text-dim); }
+  #source-link { font-size: 12px; color: var(--info); text-decoration: none; display: flex; align-items: center; gap: 3px; opacity: 0.8; }
+  #source-link:hover { opacity: 1; text-decoration: underline; }
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; padding: 6px 16px; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
+  .leg-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-dim); }
+  .leg-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="widget">
+  <div id="header">
+    <div id="header-left">
+      <i class="ti ti-shield-lock" style="font-size:15px;color:#666;" aria-hidden="true"></i>
+      <h1>Austin Crime Reports</h1>
+      <span id="badge">APD</span>
+    </div>
+    <button id="refresh-btn" onclick="startLoad()">
+      <i class="ti ti-refresh" id="refresh-icon" style="font-size:11px;" aria-hidden="true"></i>Refresh
+    </button>
+  </div>
+  <div id="filter-bar">
+    <button class="fchip active" data-cat="all"      onclick="setFilter(this,'all')">All</button>
+    <button class="fchip"        data-cat="violent"  onclick="setFilter(this,'violent')">Violent</button>
+    <button class="fchip"        data-cat="property" onclick="setFilter(this,'property')">Property</button>
+    <button class="fchip"        data-cat="drug"     onclick="setFilter(this,'drug')">Drug / DUI</button>
+    <button class="fchip"        data-cat="traffic"  onclick="setFilter(this,'traffic')">Traffic</button>
+    <button class="fchip"        data-cat="other"    onclick="setFilter(this,'other')">Other</button>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent-red)"></div>Violent</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent-amber)"></div>Property</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent-purple)"></div>Drug/DUI</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent-teal)"></div>Traffic</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent-gray)"></div>Other</div>
+  </div>
+  <div id="list">
+    <div id="status"><i class="ti ti-loader spin" style="font-size:20px;"></i> Loading…</div>
+  </div>
+  <div id="footer">
+    <span id="updated"></span>
+    <a id="source-link" href="https://data.austintexas.gov/Public-Safety/Crime-Reports/fdj4-gpfu" target="_blank">
+      Full dataset <i class="ti ti-external-link" style="font-size:10px;" aria-hidden="true"></i>
+    </a>
+  </div>
+</div>
+
+<script>
+var allIncidents = [];
+var activeFilter = 'all';
+
+// Socrata API — native CORS support, no proxy needed
+// Fields: incident_number, highest_offense_desc, occurred_date_time, location_type, address (block-level)
+// Updated weekly by APD. $order by occurred_date_time DESC, last 250 records.
+var API_URL = 'https://data.austintexas.gov/resource/fdj4-gpfu.json' +
+  '?$limit=250' +
+  '&$order=occurred_date_time+DESC' +
+  '&$select=incident_number,highest_offense_desc,occurred_date_time,location_type,ucr_category,category_description';
+
+var VIOLENT  = ['MURDER','HOMICIDE','RAPE','ROBBERY','ASSAULT','SHOOTING','WEAPON','THREAT','KIDNAP','ARSON','STRANGULATION','FAMILY DISTURBANCE','DEADLY CONDUCT','AGG ASSAULT','SEX OFFENSE'];
+var PROPERTY = ['BURGLARY','THEFT','LARCENY','AUTO THEFT','MOTOR VEHICLE','TRESPASS','VANDALISM','CRIMINAL MISCHIEF','FRAUD','FORGERY','SHOPLIFTING','STOLEN','EMBEZZLE','GRAFFITI'];
+var DRUG     = ['DRUG','NARCOTIC','DWI','DUI','ALCOHOL','PUBLIC INTOX','CONTROLLED SUBSTANCE'];
+var TRAFFIC  = ['TRAFFIC','CRASH','ACCIDENT','HIT AND RUN','HIT-AND-RUN','FAIL TO STOP','RECKLESS DRIVING'];
+
+function categorize(type) {
+  if (!type) return 'other';
+  var u = type.toUpperCase();
+  if (TRAFFIC.some(function(t) { return u.indexOf(t) !== -1; }))  return 'traffic';
+  if (DRUG.some(function(t) { return u.indexOf(t) !== -1; }))     return 'drug';
+  if (VIOLENT.some(function(t) { return u.indexOf(t) !== -1; }))  return 'violent';
+  if (PROPERTY.some(function(t) { return u.indexOf(t) !== -1; })) return 'property';
+  return 'other';
+}
+
+function fmtDate(str) {
+  if (!str) return '';
+  var d = new Date(str);
+  if (isNaN(d)) return '';
+  var diff = Date.now() - d;
+  if (diff < 3600000)  return Math.floor(diff / 60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+  var days = Math.floor(diff / 86400000);
+  if (days < 7) return days + 'd ago';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function titleCase(s) {
+  if (!s) return '';
+  return s.toLowerCase().replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
+function render() {
+  var list = document.getElementById('list');
+  var shown = activeFilter === 'all'
+    ? allIncidents
+    : allIncidents.filter(function(i) { return i.cat === activeFilter; });
+  if (!shown.length) {
+    list.innerHTML = '<div id="status">No incidents for this filter.</div>';
+    return;
+  }
+  list.innerHTML = shown.slice(0, 100).map(function(inc) {
+    var type = inc.type    ? titleCase(inc.type)    : 'Unknown incident';
+    var loc  = inc.location ? titleCase(inc.location) : '';
+    return '<div class="incident">' +
+      '<div class="dot ' + inc.cat + '"></div>' +
+      '<div>' +
+        '<div class="inc-type">' + type + '</div>' +
+        '<div class="inc-meta">' +
+          (loc ? '<span><i class="ti ti-map-pin" aria-hidden="true"></i>' + loc + '</span>' : '') +
+          (inc.case_no ? '<span><i class="ti ti-file-description" aria-hidden="true"></i>' + inc.case_no + '</span>' : '') +
+        '</div>' +
+        (inc.narrative ? '<div class="inc-narrative">' + titleCase(inc.narrative) + '</div>' : '') +
+      '</div>' +
+      '<div class="inc-date">' + fmtDate(inc.date) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function setFilter(btn, cat) {
+  activeFilter = cat;
+  document.querySelectorAll('.fchip').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  render();
+}
+
+function showError(msg) {
+  document.getElementById('refresh-icon').classList.remove('spin');
+  document.getElementById('list').innerHTML =
+    '<div id="status">' +
+      '<i class="ti ti-wifi-off" style="font-size:24px;color:#555;"></i>' +
+      '<span>' + (msg || 'Could not load data.') + '</span>' +
+      '<a href="https://data.austintexas.gov/Public-Safety/Crime-Reports/fdj4-gpfu" target="_blank">View full dataset ↗</a>' +
+    '</div>';
+}
+
+function startLoad() {
+  document.getElementById('refresh-icon').classList.add('spin');
+  document.getElementById('list').innerHTML =
+    '<div id="status"><i class="ti ti-loader spin" style="font-size:20px;"></i> Loading…</div>';
+
+  // Socrata supports CORS natively — direct fetch, no proxy needed
+  fetch(API_URL)
+    .then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function(rows) {
+      if (!Array.isArray(rows) || !rows.length) {
+        showError('No data returned.');
+        return;
+      }
+
+      allIncidents = rows.map(function(r) {
+        var typeVal = r.highest_offense_desc || '';
+        // Use category_description as a richer narrative fallback if available
+        var narrative = r.category_description || '';
+        if (narrative.toLowerCase() === typeVal.toLowerCase()) narrative = '';
+        // Append location type as context
+        var locType = r.location_type || '';
+        return {
+          type:      typeVal,
+          location:  locType,
+          date:      r.occurred_date_time || null,
+          case_no:   r.incident_number || '',
+          narrative: narrative,
+          cat:       categorize(typeVal)
+        };
+      });
+
+      document.getElementById('refresh-icon').classList.remove('spin');
+      document.getElementById('updated').textContent =
+        'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' (weekly data)';
+      render();
+    })
+    .catch(function(err) {
+      showError('Could not reach Austin open data.');
+    });
+}
+
+startLoad();
+setInterval(startLoad, 600000);
+</script>
+</body>
+</html>
