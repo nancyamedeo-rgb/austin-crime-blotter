@@ -116,7 +116,15 @@ var activeFilter = 'all';
 // Socrata API — native CORS support, no proxy needed
 // Fields: incident_number, highest_offense_desc, occurred_date_time, location_type, address (block-level)
 // Updated weekly by APD. $order by occurred_date_time DESC, last 250 records.
-var API_URL = 'https://data.austintexas.gov/resource/fdj4-gpfu.json?$limit=250&$order=occurred_date_time+DESC';
+// Try multiple dataset IDs and sort fields — Austin has renamed datasets over time
+var API_URLS = [
+  'https://data.austintexas.gov/resource/fdj4-gpfu.json?$limit=250&$order=occurred_date_time%20DESC',
+  'https://data.austintexas.gov/resource/n376-8ah5.json?$limit=250&$order=occurred_date_time%20DESC',
+  'https://data.austintexas.gov/resource/fdj4-gpfu.json?$limit=250&$order=report_date_time%20DESC',
+  'https://data.austintexas.gov/resource/n376-8ah5.json?$limit=250&$order=report_date_time%20DESC',
+  'https://data.austintexas.gov/resource/fdj4-gpfu.json?$limit=250',
+  'https://data.austintexas.gov/resource/n376-8ah5.json?$limit=250',
+];
 
 var VIOLENT  = ['MURDER','HOMICIDE','RAPE','ROBBERY','ASSAULT','SHOOTING','WEAPON','THREAT','KIDNAP','ARSON','STRANGULATION','FAMILY DISTURBANCE','DEADLY CONDUCT','AGG ASSAULT','SEX OFFENSE'];
 var PROPERTY = ['BURGLARY','THEFT','LARCENY','AUTO THEFT','MOTOR VEHICLE','TRESPASS','VANDALISM','CRIMINAL MISCHIEF','FRAUD','FORGERY','SHOPLIFTING','STOLEN','EMBEZZLE','GRAFFITI'];
@@ -199,43 +207,51 @@ function startLoad() {
   document.getElementById('list').innerHTML =
     '<div id="status"><i class="ti ti-loader spin" style="font-size:20px;"></i> Loading…</div>';
 
-  // Socrata supports CORS natively — direct fetch, no proxy needed
-  fetch(API_URL)
-    .then(function(res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .then(function(rows) {
-      if (!Array.isArray(rows) || !rows.length) {
-        showError('No data returned.');
-        return;
-      }
+  var urlIdx = 0;
 
-      allIncidents = rows.map(function(r) {
-        var typeVal = r.highest_offense_desc || '';
-        // Use category_description as a richer narrative fallback if available
-        var narrative = r.category_description || '';
-        if (narrative.toLowerCase() === typeVal.toLowerCase()) narrative = '';
-        // Append location type as context
-        var locType = r.location_type || '';
-        return {
-          type:      typeVal,
-          location:  locType,
-          date:      r.occurred_date_time || null,
-          case_no:   r.incident_number || '',
-          narrative: narrative,
-          cat:       categorize(typeVal)
-        };
-      });
-
-      document.getElementById('refresh-icon').classList.remove('spin');
-      document.getElementById('updated').textContent =
-        'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' (weekly data)';
-      render();
-    })
-    .catch(function(err) {
+  function tryUrl() {
+    if (urlIdx >= API_URLS.length) {
       showError('Could not reach Austin open data.');
-    });
+      return;
+    }
+    var url = API_URLS[urlIdx++];
+    console.log('Trying:', url);
+    fetch(url)
+      .then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(rows) {
+        if (!Array.isArray(rows) || !rows.length) throw new Error('empty');
+        console.log('Success! Fields:', Object.keys(rows[0]).join(', '));
+
+        allIncidents = rows.map(function(r) {
+          var typeVal = r.highest_offense_desc || r.offense_desc || r.offense || r.crime_type || '';
+          var locType  = r.location_type || r.premise_desc || '';
+          var dateVal  = r.occurred_date_time || r.report_date_time || r.occurred_date || '';
+          var caseNo   = r.incident_number || r.case_number || '';
+          // Any extra descriptive field as narrative
+          var narrative = r.category_description || r.clearance_status || '';
+          if (narrative && narrative.toLowerCase() === typeVal.toLowerCase()) narrative = '';
+          return {
+            type:      typeVal,
+            location:  locType,
+            date:      dateVal,
+            case_no:   caseNo,
+            narrative: narrative,
+            cat:       categorize(typeVal)
+          };
+        });
+
+        document.getElementById('refresh-icon').classList.remove('spin');
+        document.getElementById('updated').textContent =
+          'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' (weekly data)';
+        render();
+      })
+      .catch(function() { tryUrl(); });
+  }
+
+  tryUrl();
 }
 
 startLoad();
