@@ -116,10 +116,7 @@ var activeFilter = 'all';
 // Socrata API — native CORS support, no proxy needed
 // Fields: incident_number, highest_offense_desc, occurred_date_time, location_type, address (block-level)
 // Updated weekly by APD. $order by occurred_date_time DESC, last 250 records.
-var API_URL = 'https://data.austintexas.gov/resource/fdj4-gpfu.json' +
-  '?$limit=250' +
-  '&$order=occurred_date_time+DESC' +
-  '&$select=incident_number,highest_offense_desc,occurred_date_time,location_type,ucr_category,category_description';
+var API_URL = 'https://data.austintexas.gov/resource/fdj4-gpfu.json?$limit=250&$order=occurred_date_time+DESC';
 
 var VIOLENT  = ['MURDER','HOMICIDE','RAPE','ROBBERY','ASSAULT','SHOOTING','WEAPON','THREAT','KIDNAP','ARSON','STRANGULATION','FAMILY DISTURBANCE','DEADLY CONDUCT','AGG ASSAULT','SEX OFFENSE'];
 var PROPERTY = ['BURGLARY','THEFT','LARCENY','AUTO THEFT','MOTOR VEHICLE','TRESPASS','VANDALISM','CRIMINAL MISCHIEF','FRAUD','FORGERY','SHOPLIFTING','STOLEN','EMBEZZLE','GRAFFITI'];
