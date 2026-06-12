@@ -116,14 +116,13 @@ var activeFilter = 'all';
 // Socrata API — native CORS support, no proxy needed
 // Fields: incident_number, highest_offense_desc, occurred_date_time, location_type, address (block-level)
 // Updated weekly by APD. $order by occurred_date_time DESC, last 250 records.
-// Try multiple dataset IDs and sort fields — Austin has renamed datasets over time
+// Confirmed working URL and fields from console:
+// incident_report_number, crime_type, occ_date_time, location_type,
+// ucr_code, family_violence, occ_date, occ_time, rep_date_time,
+// rep_date, rep_time, council_district, sector, district,
+// clearance_status, clearance_date, census_block_group
 var API_URLS = [
-  'https://data.austintexas.gov/resource/fdj4-gpfu.json?$limit=250&$order=occurred_date_time%20DESC',
-  'https://data.austintexas.gov/resource/n376-8ah5.json?$limit=250&$order=occurred_date_time%20DESC',
-  'https://data.austintexas.gov/resource/fdj4-gpfu.json?$limit=250&$order=report_date_time%20DESC',
-  'https://data.austintexas.gov/resource/n376-8ah5.json?$limit=250&$order=report_date_time%20DESC',
   'https://data.austintexas.gov/resource/fdj4-gpfu.json?$limit=250',
-  'https://data.austintexas.gov/resource/n376-8ah5.json?$limit=250',
 ];
 
 var VIOLENT  = ['MURDER','HOMICIDE','RAPE','ROBBERY','ASSAULT','SHOOTING','WEAPON','THREAT','KIDNAP','ARSON','STRANGULATION','FAMILY DISTURBANCE','DEADLY CONDUCT','AGG ASSAULT','SEX OFFENSE'];
@@ -225,14 +224,21 @@ function startLoad() {
         if (!Array.isArray(rows) || !rows.length) throw new Error('empty');
         console.log('Success! Fields:', Object.keys(rows[0]).join(', '));
 
+        // Sort by occ_date_time descending (API returns unordered)
+        rows.sort(function(a, b) {
+          return new Date(b.occ_date_time || 0) - new Date(a.occ_date_time || 0);
+        });
+
         allIncidents = rows.map(function(r) {
-          var typeVal = r.highest_offense_desc || r.offense_desc || r.offense || r.crime_type || '';
-          var locType  = r.location_type || r.premise_desc || '';
-          var dateVal  = r.occurred_date_time || r.report_date_time || r.occurred_date || '';
-          var caseNo   = r.incident_number || r.case_number || '';
-          // Any extra descriptive field as narrative
-          var narrative = r.category_description || r.clearance_status || '';
-          if (narrative && narrative.toLowerCase() === typeVal.toLowerCase()) narrative = '';
+          var typeVal   = r.crime_type || '';
+          var locType   = r.location_type || '';
+          var dateVal   = r.occ_date_time || r.rep_date_time || '';
+          var caseNo    = r.incident_report_number || '';
+          // Show clearance status as a subtle narrative if cleared
+          var narrative = '';
+          if (r.clearance_status && r.clearance_status !== 'N' && r.clearance_status !== 'O') {
+            narrative = 'Cleared: ' + r.clearance_status;
+          }
           return {
             type:      typeVal,
             location:  locType,
